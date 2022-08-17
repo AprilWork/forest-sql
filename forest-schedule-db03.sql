@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `classes` (
   UNIQUE KEY `name_UNIQUE` (`name`),
   KEY `type_id` (`type_id`),
   CONSTRAINT `type_id` FOREIGN KEY (`type_id`) REFERENCES `class_type` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1658 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1663 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table schedule_db.classes: ~7 rows (approximately)
 REPLACE INTO `classes` (`id`, `name`, `description`, `file_image_name`, `type_id`, `create_time`) VALUES
@@ -55,6 +55,20 @@ CREATE TABLE `classes_schedule_view` (
 	`state` ENUM('Book Now','Wait List','Canceled','Closed') NULL COLLATE 'utf8mb4_0900_ai_ci'
 ) ENGINE=MyISAM;
 
+-- Dumping structure for function schedule_db.classState
+DELIMITER //
+CREATE FUNCTION `classState`(
+	`capacity` INT,
+	`booked` INT
+) RETURNS int
+    NO SQL
+    DETERMINISTIC
+CASE capacity > booked
+    WHEN true THEN RETURN 1;
+    ELSE RETURN 2;
+END CASE//
+DELIMITER ;
+
 -- Dumping structure for table schedule_db.class_type
 CREATE TABLE IF NOT EXISTS `class_type` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -62,7 +76,7 @@ CREATE TABLE IF NOT EXISTS `class_type` (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE KEY `name_UNIQUE` (`name_type`),
   UNIQUE KEY `category_id_UNIQUE` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=183 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=191 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table schedule_db.class_type: ~4 rows (approximately)
 REPLACE INTO `class_type` (`id`, `name_type`) VALUES
@@ -162,23 +176,25 @@ CREATE TABLE IF NOT EXISTS `schedule` (
   `begin_session` time DEFAULT '00:00:00',
   `end_session` time DEFAULT '00:00:00',
   `room` int DEFAULT '0',
-  `state` enum('Book Now','Wait List','Canceled','Closed') DEFAULT 'Book Now',
+  `state` enum('Book Now','Wait List','Canceled','Closed') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `capacity` int unsigned DEFAULT NULL,
   `booked` int unsigned DEFAULT NULL,
   PRIMARY KEY (`session_id`) USING BTREE,
   UNIQUE KEY `id_UNIQUE` (`session_id`),
   KEY `class_id` (`class_id`),
   CONSTRAINT `FK_schedule_classes` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table schedule_db.schedule: ~6 rows (approximately)
+-- Dumping data for table schedule_db.schedule: ~8 rows (approximately)
 REPLACE INTO `schedule` (`session_id`, `class_id`, `days_of_week`, `begin_session`, `end_session`, `room`, `state`, `capacity`, `booked`) VALUES
 	(5, 2, 'We,Sa', '09:30:00', '10:30:00', 2, 'Wait List', 15, 15),
 	(6, 1656, 'Mo,Th', '18:30:00', '19:30:00', 2, 'Book Now', 15, 5),
 	(7, 3, 'Su,Fr', '23:40:00', '00:30:00', 1, 'Book Now', 10, 6),
 	(8, 4, 'Tu,Fr', '09:30:00', '10:30:00', 1, 'Book Now', 15, 8),
-	(9, 3, 'Mo,Th', '18:30:00', '19:30:00', 2, 'Book Now', 10, 9),
-	(11, 3, 'Mo,Fr', '18:30:00', '19:30:00', 2, 'Wait List', 15, 15);
+	(9, 3, 'Mo,Th', '18:30:00', '19:30:00', 2, 'Wait List', 10, 10),
+	(11, 10, 'Mo,Fr', '18:30:00', '19:30:00', 2, 'Book Now', 15, 10),
+	(12, 3, 'Mo,Th', '00:00:00', '00:00:00', 2, 'Book Now', 10, 8),
+	(13, 3, 'Mo,Th', '18:30:00', '19:30:00', 2, 'Book Now', 10, 8);
 
 -- Dumping structure for procedure schedule_db.Update_Schedule
 DELIMITER //
@@ -204,7 +220,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE KEY `email_UNIQUE` (`email`),
   UNIQUE KEY `id_UNIQUE` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1624 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1632 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table schedule_db.users: ~7 rows (approximately)
 REPLACE INTO `users` (`id`, `email`, `username`, `password`, `create_time`) VALUES
@@ -252,6 +268,24 @@ REPLACE INTO `user_info` (`id`, `email`, `username`, `date_birth`, `first_name`,
 	(10, 'rest@yahoo.com', 'Irene Restless', '1968-08-15', 'Irene', 'Restless', 'dgd', 'Vast', '32103', '6789012345', 0, '2022-08-04 00:01:05'),
 	(11, 'ford@yahoo.com', 'Peter Ford', '1996-04-22', 'Peter', 'Ford', 'dfgd', 'Green', '67801', '1029384756', 0, '2022-08-05 20:38:22'),
 	(12, 'summer@yahoo.com', 'Jeen Summer', '1957-10-16', 'Jeen', 'Summer', 'dff', 'Heidy', '23056', '564738280', 0, '2022-08-05 21:55:15');
+
+-- Dumping structure for trigger schedule_db.schedule_before_insert
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='';
+DELIMITER //
+CREATE TRIGGER `schedule_before_insert` BEFORE INSERT ON `schedule` FOR EACH ROW BEGIN
+SET NEW.state = classState(NEW.capacity,NEW.booked);
+END//
+DELIMITER ;
+SET SQL_MODE=@OLDTMP_SQL_MODE;
+
+-- Dumping structure for trigger schedule_db.schedule_before_update
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+DELIMITER //
+CREATE TRIGGER `schedule_before_update` BEFORE UPDATE ON `schedule` FOR EACH ROW BEGIN
+SET NEW.state = classState(NEW.capacity,NEW.booked);
+END//
+DELIMITER ;
+SET SQL_MODE=@OLDTMP_SQL_MODE;
 
 -- Dumping structure for view schedule_db.classes_schedule_view
 -- Removing temporary table and create final VIEW structure
